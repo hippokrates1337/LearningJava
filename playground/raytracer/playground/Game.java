@@ -35,11 +35,15 @@ public class Game extends JFrame implements Runnable {
 				{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 				{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 		};
+	public ArrayList<Texture> textures;
+	public Camera camera;
+	public Screen screen;
 	
 	public Game() {
 		thread = new Thread(this);
 		image = new BufferedImage(640, 480, BufferedImage.TYPE_INT_RGB);
 		pixels = ((DataBufferInt)image.getRaster().getDataBuffer()).getData();
+		
 		setSize(640, 480);
 		setResizable(false);
 		setTitle("RayCasting experiment");
@@ -47,6 +51,18 @@ public class Game extends JFrame implements Runnable {
 		setBackground(Color.black);
 		setLocationRelativeTo(null);
 		setVisible(true);
+		
+		textures = new ArrayList<Texture>();
+		textures.add(Texture.wood);
+		textures.add(Texture.stone);
+		textures.add(Texture.bluestone);
+		textures.add(Texture.brick);
+		
+		camera = new Camera(4.5, 4.5, 1, 0, 0, -0.66);
+		addKeyListener(camera);
+		
+		screen = new Screen(map, mapWidth, mapHeight, textures, 640, 480);
+		
 		start();
 	}
 	
@@ -88,8 +104,8 @@ public class Game extends JFrame implements Runnable {
 			lastTime = now;
 			
 			while(delta >= 1) {
-				// TO COME
-				
+				screen.update(camera, pixels);
+				camera.update(map);
 				delta--;
 			}
 			
