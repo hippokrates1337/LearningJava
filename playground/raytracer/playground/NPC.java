@@ -8,9 +8,9 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 
 public class NPC {
-	private int xPos, yPos;
-	private int[] pixels;
-	private int width, height;
+	public int xPos, yPos;
+	public int[] pixels;
+	public int width, height;
 	
 	public NPC(String path, int xp, int yp) {
 		xPos = xp;
@@ -30,6 +30,7 @@ public class NPC {
 	public void render(Camera camera, int[] screenBuffer, Screen screen) {
 		double distance = Math.sqrt((xPos - camera.xPos) * (xPos - camera.xPos)
 				+ (yPos - camera.yPos) * (yPos - camera.yPos));
+		
 		int scaledHeight = (int)(height / distance);
 		int scaledWidth = (int)(width / distance);
 		

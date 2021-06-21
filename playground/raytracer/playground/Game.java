@@ -38,7 +38,7 @@ public class Game extends JFrame implements Runnable {
 	public ArrayList<Texture> textures;
 	public Camera camera;
 	public Screen screen;
-	public NPC demon;
+	public NPC[] npcs;
 	
 	public Game() {
 		thread = new Thread(this);
@@ -63,7 +63,8 @@ public class Game extends JFrame implements Runnable {
 		addKeyListener(camera);
 		
 		screen = new Screen(map, mapWidth, mapHeight, textures, 640, 480);
-		demon = new NPC("C:\\Users\\Joachim\\git\\LearningJava\\playground\\raytracer\\playground\\res\\demon_cartoon_small.png", 7, 7);
+		npcs = new NPC[1];
+		npcs[0] = new NPC("C:\\Users\\Joachim\\git\\LearningJava\\playground\\raytracer\\playground\\res\\demon_cartoon_small.png", 7, 9);
 		
 		start();
 	}
@@ -106,8 +107,7 @@ public class Game extends JFrame implements Runnable {
 			lastTime = now;
 			
 			while(delta >= 1) {
-				screen.update(camera, pixels);
-				demon.render(camera, pixels, screen);
+				screen.update(camera, pixels, npcs);
 				camera.update(map);
 				delta--;
 			}

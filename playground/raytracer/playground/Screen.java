@@ -17,7 +17,9 @@ public class Screen {
 		height = h;
 	}
 	
-	public int[] update(Camera camera, int[] pixels) {
+	public int[] update(Camera camera, int[] pixels, NPC [] npcs) {
+		boolean npcsToDraw[] = new boolean[npcs.length];
+		
 		for(int n = 0; n < pixels.length / 2; n++)  {
 			if(pixels[n] != Color.DARK_GRAY.getRGB()) pixels[n] = Color.DARK_GRAY.getRGB();
 		}
@@ -27,7 +29,7 @@ public class Screen {
 		}
 		
 		for(int x = 0; x < width; x++) {
-			double cameraX = 2 * x / (double)(width) -1;
+			double cameraX = 2 * x / (double)(width) - 1;
 		    double rayDirX = camera.xDir + camera.xPlane * cameraX;
 		    double rayDirY = camera.yDir + camera.yPlane * cameraX;
 		    
@@ -90,6 +92,14 @@ public class Screen {
 		    	//Check if ray has hit a wall
 		    	//System.out.println(mapX + ", " + mapY + ", " + map[mapX][mapY]);
 		    	if(map[mapX][mapY] > 0) hit = true;
+		    	
+		    	if(!hit) {
+		    		for(int i = 0; i < npcs.length; i++) {
+		    			if(mapX == npcs[i].xPos && mapY == npcs[i].yPos) {
+		    				npcsToDraw[i] = true;
+		    			}
+		    		}
+		    	}
 		    }
 		    
 		    //Calculate distance to the point of impact
@@ -133,6 +143,50 @@ public class Screen {
 		    	if(side==0) color = textures.get(texNum).pixels[texX + (texY * textures.get(texNum).SIZE)];
 		    	else color = (textures.get(texNum).pixels[texX + (texY * textures.get(texNum).SIZE)]>>1) & 8355711;//Make y sides darker
 		    	pixels[x + y*(width)] = color;
+		    }
+		    
+		    for(int i = 0; i < npcs.length; i++) {
+		    	if(npcsToDraw[i]) {
+		    		double distance = Math.sqrt((npcs[i].xPos - camera.xPos) * (npcs[i].xPos - camera.xPos)
+		    				+ (npcs[i].yPos - camera.yPos) * (npcs[i].yPos - camera.yPos));
+		    		
+		    		if(distance < 1.4f) continue;
+		    		
+		    		int scaledHeight = (int)(npcs[i].height / distance);
+		    		int scaledWidth = (int)(npcs[i].width / distance);
+		    		
+		    		if(scaledHeight > height) 
+		    			scaledHeight = height;
+		    		
+		    		if(scaledWidth > width)
+		    			scaledWidth = width;
+		    		
+		    		// Determine which column of the sprite to draw
+		    		double u = ((npcs[i].xPos - camera.xPos) * rayDirY 
+		    				- (npcs[i].yPos - camera.yPos) * rayDirX)
+		    				 / (rayDirX * 0 - rayDirY * 1);
+		    		texX = (int)(Math.abs(u) * npcs[i].width);
+		    		
+		    		//calculate lowest and highest pixel to fill in current stripe
+				    drawStart = -scaledHeight/2 + height/2;
+				    if(drawStart < 0)
+				    	drawStart = 0;
+				    drawEnd = scaledHeight/2 + height/2;
+				    if(drawEnd >= height) 
+				    	drawEnd = height - 1;
+		    		
+		    		for(int y = drawStart; y < drawEnd; y++) {
+		    			int texY = (y - drawStart) * npcs[i].height / scaledHeight;
+		    			
+		    			if(texY * npcs[i].width + texX >= npcs[i].pixels.length)
+		    				break;
+		    			
+		    			if(npcs[i].pixels[texY * npcs[i].width + texX] != 0)
+		    				pixels[x + y*(width)] = npcs[i].pixels[texY * npcs[i].width + texX];
+		    		}
+		    		
+		    		npcsToDraw[i] = false;
+		    	}
 		    }
 		}
 		
