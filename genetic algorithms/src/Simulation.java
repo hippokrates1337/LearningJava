@@ -4,17 +4,38 @@ import java.awt.Graphics2D;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 
-class Surface extends JPanel {
+class Surface extends JPanel implements Runnable {    
+    public static final float MARGIN = 0.2f;
+    public static final float CARWIDTH = 0.035f, CARHEIGHT = 0.065f;
+    public static final float TRACKWIDTH = 0.125f;
     private Level level;
-    private final int levelX = 640;
-    private final int levelY = 480;
+    private Car car;
+    private int lastWidth, lastHeight;
+    private Thread animator;
+    private Boolean running;
     
     public Surface() {
-        level = new Level(50, 0.05f, 0.125f, levelX, levelY);
+        level = new Level(50, 0.05f, TRACKWIDTH);
+        car = new Car(0, level.getMaxY() * (1 + TRACKWIDTH / 2), 1, 0, 0.03f, CARWIDTH, CARHEIGHT);
+        lastWidth = lastHeight = 0;
+
+        start();
     }
     
     private void draw(Graphics g) {
-        level.draw(g, (int)((getWidth() - levelX) / 2), (int)((getHeight() - levelY) / 2));
+        if(getWidth() != lastWidth || getHeight() != lastHeight) {
+            lastWidth = getWidth();
+            lastHeight = getHeight();
+            
+            // Rescale level if window has been rescaled
+            level.rescale((int) (lastWidth * (1 - MARGIN) / 2), (int) (lastHeight * (1 - MARGIN) / 2));
+        }
+        
+        int offsetX = (int) ((getWidth() * MARGIN) / 2);
+        int offsetY = (int) ((getHeight() * MARGIN) / 2);
+
+        level.draw(g, offsetX, offsetY);
+        car.draw(g, offsetX, offsetY, (int) (lastWidth * (1 - MARGIN) / 2), (int) (lastHeight * (1 - MARGIN) / 2));
     }
 
     @Override
@@ -22,15 +43,54 @@ class Surface extends JPanel {
         super.paintComponent(g);
         draw(g);
     }
+
+    public void start() {
+        animator = new Thread(this);
+        animator.start();
+        running = true;
+    }
+
+    public void stop() {
+        running = false;
+    }
+
+    @Override
+    public void run() {
+        long beforeTime, timeDiff;
+
+        beforeTime = System.currentTimeMillis();
+
+        while(running) {
+            timeDiff = System.currentTimeMillis() - beforeTime;
+
+            // Ensure max frame rate of 60 FPS
+            if(timeDiff < 1000 / 60) {
+                try {
+                    Thread.sleep(1000 / 60 - timeDiff);
+                    timeDiff = 1000 / 60;
+                } catch(InterruptedException e) {
+                    // Empty for now
+                }
+            }
+
+            car.update(timeDiff, level);
+            repaint();
+
+            beforeTime = System.currentTimeMillis();
+        }
+    }
 }
 
 public class Simulation extends JFrame {
+    private Surface surface;
+
     public Simulation() {
         initUI();
     }
 
     private void initUI() {
-        add(new Surface());
+        surface = new Surface();
+        add(surface);
 
         setTitle("Self-driving car simulation");
         setSize(1024, 768);

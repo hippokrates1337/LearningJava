@@ -8,19 +8,20 @@ import java.awt.geom.GeneralPath;
 
 public class Level {
     // The edge points making up the "graph" of the level (x, y)
-    private int[][] innerVertices;
-    private int[][] outerVertices;
+    private float[][] innerVertices, outerVertices;
+    private int[][] innerVerticesScaled, outerVerticesScaled;
+    
+    // THe size of the level in a (-1, 1) coordinate system, measuring the inner circle (!)
+    private float minX, maxX, minY, maxY;
 
     /**
      * Creates a Level object using the supplied parameters
      * @param numPoints The number of points to distribute on a unit circle to form the level polygon
      * @param variability How much to randomly shift each individual point by to make the level less regular (use small values like 0.05F)
      * @param trackWidth The scaling factor by which to make the outer edge of the level larger than the inner (determining how wide the track is); typical values between 0.05f and 0.2f
-     * @param scaleToX The width in pixels the level should have in the window it is going to be displayed in
-     * @param scaleToY The height in pixels the level should have in the window it is going to be displayed in
      */
-    public Level(int numPoints, float variability, float trackWidth, int scaleToX, int scaleToY) {
-        float minX = 0, maxX = 0, minY = 0, maxY = 0;
+    public Level(int numPoints, float variability, float trackWidth) {
+        minX = maxX = minY = maxY = 0.0f;
         
         if(numPoints < 3) {
             throw new IllegalArgumentException("numPoints must be at least 3");
@@ -50,18 +51,33 @@ public class Level {
 
         // Determine rescaling factor by comparing generated level size to desired level size and scaling all points
         // At the same time, convert to integer space (pixel coordinates) and copy into private class attribute
-        // Shift the center of the unit circle by 1 unit in order to ensure all coordinates are positive
-        innerVertices = new int[numPoints][2];
-        outerVertices = new int[numPoints][2];
+        innerVertices = new float[numPoints][2];
+        innerVerticesScaled = new int[numPoints][2];
+        outerVertices = new float[numPoints][2];
+        outerVerticesScaled = new int[numPoints][2];
         for(int i = 0; i < numPoints; i++) {
-            innerVertices[i][0] = (int) ((points[i][0] + 1) * (scaleToX / (maxX - minX)));
-            innerVertices[i][1] = (int) ((points[i][1] + 1) * (scaleToY / (maxY - minY)));
-            outerVertices[i][0] = (int) ((points[i][0] * (1 + trackWidth) + 1) * (scaleToX / (maxX - minX)));
-            outerVertices[i][1] = (int) ((points[i][1] * (1+ trackWidth) + 1) * (scaleToY / (maxY - minY)));
+            innerVertices[i][0] = points[i][0];
+            innerVertices[i][1] = points[i][1];
+            outerVertices[i][0] = points[i][0] * (1 + trackWidth);
+            outerVertices[i][1] = points[i][1] * (1+ trackWidth);
         }
     }
 
-    
+    /**
+     * Rescales the level from a (-1, 1) coordinate system based on the shifted unit circle to a 
+     * pixel coordinate system (shifting the center from (0, 0) to (1, 1) to ensure all coordinates are positive)
+     * @param scaleToX Desired level width in pixels
+     * @param scaleToY Desired level height in pixels
+     */
+    public void rescale(int scaleToX, int scaleToY) {
+        for(int i = 0; i < innerVertices.length; i++) {
+            innerVerticesScaled[i][0] = (int) ((innerVertices[i][0] + 1) * scaleToX);
+            innerVerticesScaled[i][1] = (int) ((innerVertices[i][1] + 1) * scaleToY);
+            outerVerticesScaled[i][0] = (int) ((outerVertices[i][0] + 1) * scaleToX);
+            outerVerticesScaled[i][1] = (int) ((outerVertices[i][1] + 1) * scaleToY);
+        }
+    }
+
     /**
      * Draws the level to the screen (inner and outer edge) using the supplied Graphics2D object
      * @param g A Graphics2D object to use for drawing
@@ -74,14 +90,16 @@ public class Level {
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
-        g2d.setPaint(Color.red);
+        g2d.setPaint(Color.blue);
         g2d.translate(startX, startY);
         
         // Draw the inner line of the track
         GeneralPath outline = new GeneralPath();
-        outline.moveTo(innerVertices[0][0], innerVertices[0][1]);
-        for(int i = 1; i < innerVertices.length; i++) {
-            outline.lineTo(innerVertices[i][0], innerVertices[i][1]);
+        outline.moveTo(innerVerticesScaled[0][0], innerVerticesScaled[0][1]);
+        g2d.drawString("0", innerVerticesScaled[0][0] + 5, innerVerticesScaled[0][1] + 5);
+        for(int i = 1; i < innerVerticesScaled.length; i++) {
+            outline.lineTo(innerVerticesScaled[i][0], innerVerticesScaled[i][1]);
+            g2d.drawString("" + i, innerVerticesScaled[i][0] + 5, innerVerticesScaled[i][1] + 5);
         }
         outline.closePath();
         g2d.draw(outline);
@@ -89,13 +107,37 @@ public class Level {
         // Draw the outer line of the track
         g2d.setPaint(Color.blue);
         outline = new GeneralPath();
-        outline.moveTo(outerVertices[0][0], outerVertices[0][1]);
-        for(int i = 1; i < outerVertices.length; i++) {
-            outline.lineTo(outerVertices[i][0], outerVertices[i][1]);
+        outline.moveTo(outerVerticesScaled[0][0], outerVerticesScaled[0][1]);
+        for(int i = 1; i < outerVerticesScaled.length; i++) {
+            outline.lineTo(outerVerticesScaled[i][0], outerVerticesScaled[i][1]);
         }
         outline.closePath();
         g2d.draw(outline);
         
         g2d.dispose();
+    }
+
+    public float getMinX() {
+        return minX;
+    }
+
+    public float getMaxX() {
+        return maxX;
+    }
+
+    public float getMinY() {
+        return minY;
+    }
+
+    public float getMaxY() {
+        return maxY;
+    }
+
+    public float[][] getInnerVertices() {
+        return innerVertices;
+    }
+
+    public float[][] getOuterVertices() {
+        return outerVertices;
     }
 }
