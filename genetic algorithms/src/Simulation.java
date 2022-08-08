@@ -9,14 +9,14 @@ class Surface extends JPanel implements Runnable {
     public static final float CARWIDTH = 0.035f, CARHEIGHT = 0.065f;
     public static final float TRACKWIDTH = 0.125f;
     private Level level;
-    private Car car;
+    private GeneticAlgorithm ga;
     private int lastWidth, lastHeight;
     private Thread animator;
     private Boolean running;
     
     public Surface() {
         level = new Level(50, 0.05f, TRACKWIDTH);
-        car = new Car(0, level.getMaxY() * (1 + TRACKWIDTH / 2), 1, 0, 0.03f, CARWIDTH, CARHEIGHT);
+        ga = new GeneticAlgorithm(5, 5, level, TRACKWIDTH);
         lastWidth = lastHeight = 0;
 
         start();
@@ -35,7 +35,7 @@ class Surface extends JPanel implements Runnable {
         int offsetY = (int) ((getHeight() * MARGIN) / 2);
 
         level.draw(g, offsetX, offsetY);
-        car.draw(g, offsetX, offsetY, (int) (lastWidth * (1 - MARGIN) / 2), (int) (lastHeight * (1 - MARGIN) / 2));
+        ga.draw(g, offsetX, offsetY, (int) (lastWidth * (1 - MARGIN) / 2), (int) (lastHeight * (1 - MARGIN) / 2));
     }
 
     @Override
@@ -73,7 +73,7 @@ class Surface extends JPanel implements Runnable {
                 }
             }
 
-            car.update(timeDiff, level);
+            ga.update(timeDiff, level);
             repaint();
 
             beforeTime = System.currentTimeMillis();

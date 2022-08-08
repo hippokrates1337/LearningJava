@@ -15,12 +15,13 @@ public class Car {
     private float[] steeringBehavior;
     private float distanceTraveled;
     private long timeTraveled;
-    private final int THRESHOLD_CHANGEDIR = 0;
-    private final int ANGLE_CHANGEDIR = 1;
-    private final int THRESHOLD_ACCELERATE = 2;
-    private final int INCREMENT_ACCELERATE = 3;
-    private final int THRESHOLD_BRAKE = 4;
-    private final int INCREMENT_BRAKE = 5;
+    public static final int THRESHOLD_CHANGEDIR = 0;
+    public static final int ANGLE_CHANGEDIR = 1;
+    public static final int THRESHOLD_ACCELERATE = 2;
+    public static final int INCREMENT_ACCELERATE = 3;
+    public static final int THRESHOLD_BRAKE = 4;
+    public static final int INCREMENT_BRAKE = 5;
+    public static final int NUM_PARAMETERS = 6;
 
     /**
      * Constructs a new car
@@ -48,13 +49,15 @@ public class Car {
         alive = true;
 
         leftMinDist = rightMinDist = 9999.0f;
-        steeringBehavior = new float[5];
         distanceTraveled = 0;
         timeTraveled = 0;
+    }
 
-        // Dummy values for testing
-        steeringBehavior[THRESHOLD_CHANGEDIR] = 0.2f;
-        steeringBehavior[ANGLE_CHANGEDIR] = 0.1f;
+    public void setSteeringBehavior(float[] behavior) {
+        steeringBehavior = new float[NUM_PARAMETERS];
+        for(int i = 0; i < steeringBehavior.length; i++) {
+            steeringBehavior[i] = behavior[i];
+        }
     }
 
     public float getWidth() {
@@ -71,6 +74,18 @@ public class Car {
 
     public void setHeight(float newHeight) {
         height = newHeight;
+    }
+
+    public float getDistanceTraveled() {
+        return distanceTraveled;
+    }
+
+    public long getTimeTraveled() {
+        return timeTraveled;
+    }
+
+    public boolean getStatus() {
+        return alive;
     }
 
     /**
@@ -105,11 +120,11 @@ public class Car {
         g2d = (Graphics2D) g.create();
         g2d.setColor(Color.red);
         g2d.translate(startX, startY);
-        g2d.drawString("Shortest Distance left: " + leftMinDist, scaleToX / 2, scaleToY / 2);
-        g2d.drawString("Shortest Distance right: " + rightMinDist, scaleToX / 2, scaleToY / 2 + 12);
-        g2d.drawString("Distance traveled: " + distanceTraveled, scaleToX / 2, scaleToY / 2 + 24);
-        g2d.drawString("Time traveled: " + timeTraveled, scaleToX / 2, scaleToY / 2 + 36);
-        g2d.drawString("Direcation: (" + dirX + ", " + dirY + ")", scaleToX / 2, scaleToY / 2 + 48);
+        //g2d.drawString("Shortest Distance left: " + leftMinDist, scaleToX / 2, scaleToY / 2);
+        //g2d.drawString("Shortest Distance right: " + rightMinDist, scaleToX / 2, scaleToY / 2 + 12);
+        //g2d.drawString("Distance traveled: " + distanceTraveled, scaleToX / 2, scaleToY / 2 + 24);
+        //g2d.drawString("Time traveled: " + timeTraveled, scaleToX / 2, scaleToY / 2 + 36);
+        //g2d.drawString("Direcation: (" + dirX + ", " + dirY + ")", scaleToX / 2, scaleToY / 2 + 48);
         for(int i = 0; i < 4; i++) {
             // Start with horizontally distributed points in the local coordinate space of the car
             float rx1 = -width / 2 + (width / 3) * i;
@@ -144,7 +159,7 @@ public class Car {
                 alive = false;
                 color = Color.red;
             } else {
-                perceive(l, 4);
+                perceive(l, 4, 1);
                 
                 if(leftMinDist < steeringBehavior[THRESHOLD_CHANGEDIR]) {
                     float newDirX = (float) (dirX * Math.cos(steeringBehavior[ANGLE_CHANGEDIR])
@@ -202,18 +217,7 @@ public class Car {
         closestOuter = getNearestLine(l.getOuterVertices());
         dotOuter = dotProduct(l.getOuterVertices(), closestOuter);
 
-        // Upper half of the level
-        /*
-        if(y < 0 && (dotInner > 0 || dotOuter < 0)) {
-            System.out.println("Collision detected at (" + x + ", " + y + ")");
-            return true;
-        }
-        // Lower half of the level
-        if(y >= 0 && (dotInner < 0 || dotOuter > 0)) {
-            System.out.println("Collision detected at (" + x + ", " + y + ")");
-            return true;
-        }
-        */
+        // Test whether car is on the "right side of the line"
         if(dotInner < 0 || dotOuter > 0) {
             System.out.println("Collision detected at (" + x + ", " + y + ")");
             return true;
@@ -288,7 +292,14 @@ public class Car {
         return (nextX - curX) * (curY - y) - (curX - x) * (nextY - curY);
     }
 
-    public void perceive(Level l, int numRays) {
+    /**
+     * Measures the minimum distance to the next wall on the left and right side of the car and saves this in the respective
+     * private class attributes
+     * @param l The level against which to measure distances
+     * @param numRays How many rays to send out from the car (half of which will be measuring the left-side distance and half
+     * of which will be measuring the right-side distance) 
+     */
+    public void perceive(Level l, int numRays, float rayLength) {
         float shortestDistLeft = 9999.0f;
         float shortestDistRight = 9999.0f;
 
@@ -306,9 +317,9 @@ public class Car {
             ry1  = y + (float) (rx1 * Math.sin(theta) + ry1 * Math.cos(theta));
             rx1 = x + temp;
                 
-            // Make the rays 1 unit long (for now)
-            float rx2 = rx1 + dirX * 1;
-            float ry2 = ry1 + dirY * 1;
+            // Elongate the rays to the desired length
+            float rx2 = rx1 + dirX * rayLength;
+            float ry2 = ry1 + dirY * rayLength;
 
             float distInner = distanceToWall(rx1, ry1, rx2, ry2, l.getInnerVertices());
             float distOuter = distanceToWall(rx1, ry1, rx2, ry2, l.getOuterVertices());
