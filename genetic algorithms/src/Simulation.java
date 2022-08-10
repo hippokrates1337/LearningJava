@@ -15,13 +15,20 @@ class Surface extends JPanel implements Runnable {
     private Boolean running;
     
     public Surface() {
-        level = new Level(50, 0.05f, TRACKWIDTH);
-        ga = new GeneticAlgorithm(5, 5, level, TRACKWIDTH);
+        // Don't make the level too fine (i.e., too many vertices) because otherwise measuring the distance travelled
+        // will become difficult (this is counting the line segments a car has passed and at sufficient speed the car
+        // would end up skipping individual lines altogether, never reaching 100%)
+        level = new Level(75, 0.02f, TRACKWIDTH);
+        ga = new GeneticAlgorithm(50, 24, level, TRACKWIDTH);
         lastWidth = lastHeight = 0;
 
         start();
     }
     
+    /**
+     * Draws the whole simulation to the screen, dynamically rescaling to the window size
+     * @param g Graphics2D object to do the drawing with
+     */
     private void draw(Graphics g) {
         if(getWidth() != lastWidth || getHeight() != lastHeight) {
             lastWidth = getWidth();
@@ -73,7 +80,7 @@ class Surface extends JPanel implements Runnable {
                 }
             }
 
-            ga.update(timeDiff, level);
+            ga.update(timeDiff);
             repaint();
 
             beforeTime = System.currentTimeMillis();

@@ -1,6 +1,7 @@
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Color;
+import java.awt.RenderingHints;
 import java.awt.geom.AffineTransform;
 import java.Math;
 
@@ -10,11 +11,11 @@ public class Car {
     private float speed;
     private float width, height;
     private Color color;
-    private Boolean alive;
+    private boolean alive;
     private float leftMinDist, rightMinDist;
     private float[] steeringBehavior;
-    private float distanceTraveled;
     private long timeTraveled;
+    private int[] segmentsPassed;
     public static final int THRESHOLD_CHANGEDIR = 0;
     public static final int ANGLE_CHANGEDIR = 1;
     public static final int THRESHOLD_ACCELERATE = 2;
@@ -27,8 +28,10 @@ public class Car {
      * Constructs a new car
      * @param startX Starting position in the (-1, 1) coordinate system
      * @param startY Starting position in the (-1, 1) coordinate system
-     * @param startDirX Initial direction vector (-1, 1) coordinate system; will be multiplied with speed and added to the position
-     * @param startDirY Initial direction vector (-1, 1) coordinate system; will be multiplied with speed and added to the position
+     * @param startDirX Initial direction vector (-1, 1) coordinate system; will be multiplied with speed and added to the position;
+     *                  this vector will always be normalized by the class itself
+     * @param startDirY Initial direction vector (-1, 1) coordinate system; will be multiplied with speed and added to the position;
+     *                  this vector will always be normalized by the class itself
      * @param startSpeed Initial speed of the car in pixels per second
      * @param drawWidth Size of the car in a (-1, 1) coordinate system; will then be scaled to pixel coordinates
      * @param drawHeight Size of the car in a (-1, 1) coordinate system; will then be scaled to pixel coordinates
@@ -48,16 +51,25 @@ public class Car {
         color = Color.black;
         alive = true;
 
+        // Since all coordinates should be in a space between -1.5 and +1.5, this should be safe
         leftMinDist = rightMinDist = 9999.0f;
-        distanceTraveled = 0;
         timeTraveled = 0;
     }
 
+    /**
+     * Gives the car parameters for when to change direction (and how much) as well as when to accelerate/brake (and how much).
+     * @param behavior An array of size Car.NUM_PARAMETERS that contains the steering parameters specified by the public variables
+     *                  Car.THRESHOLD_CHANGEDIR, Car.ANGLE_CHANGEDIR (in radians), etc.
+     */
     public void setSteeringBehavior(float[] behavior) {
         steeringBehavior = new float[NUM_PARAMETERS];
         for(int i = 0; i < steeringBehavior.length; i++) {
             steeringBehavior[i] = behavior[i];
         }
+    }
+
+    public float[] getSteeringBehavior() {
+        return steeringBehavior;
     }
 
     public float getWidth() {
@@ -76,10 +88,27 @@ public class Car {
         height = newHeight;
     }
 
-    public float getDistanceTraveled() {
-        return distanceTraveled;
+    /**
+     * Returns the distance traveled measured in line segments the car has passed by. These are counted only once, so the distance
+     * is capped at the number of line segments making up the level
+     * @return Number of inner line segments of the level the car has passed
+     */
+    public int getDistanceTraveled() {
+        int dist = 0;
+
+        if(null == segmentsPassed) return 0;
+
+        for(int i = 0; i < segmentsPassed.length; i++) {
+            dist += segmentsPassed[i];
+        }
+
+        return dist;
     }
 
+    /**
+     * Returns the time the car has been alive
+     * @return Time in milliseconds
+     */
     public long getTimeTraveled() {
         return timeTraveled;
     }
@@ -99,6 +128,7 @@ public class Car {
     public void draw(Graphics g, int startX, int startY, int scaleToX, int scaleToY) {
         Graphics2D g2d = (Graphics2D) g.create();
 
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setColor(color);
 
         AffineTransform at = new AffineTransform();
@@ -117,14 +147,15 @@ public class Car {
         g2d.dispose();
 
         // For debug: draw perception rays
+        /*
         g2d = (Graphics2D) g.create();
         g2d.setColor(Color.red);
         g2d.translate(startX, startY);
-        //g2d.drawString("Shortest Distance left: " + leftMinDist, scaleToX / 2, scaleToY / 2);
-        //g2d.drawString("Shortest Distance right: " + rightMinDist, scaleToX / 2, scaleToY / 2 + 12);
-        //g2d.drawString("Distance traveled: " + distanceTraveled, scaleToX / 2, scaleToY / 2 + 24);
-        //g2d.drawString("Time traveled: " + timeTraveled, scaleToX / 2, scaleToY / 2 + 36);
-        //g2d.drawString("Direcation: (" + dirX + ", " + dirY + ")", scaleToX / 2, scaleToY / 2 + 48);
+        g2d.drawString("Shortest Distance left: " + leftMinDist, scaleToX / 2, scaleToY / 2);
+        g2d.drawString("Shortest Distance right: " + rightMinDist, scaleToX / 2, scaleToY / 2 + 12);
+        g2d.drawString("Distance traveled: " + distanceTraveled, scaleToX / 2, scaleToY / 2 + 24);
+        g2d.drawString("Time traveled: " + timeTraveled, scaleToX / 2, scaleToY / 2 + 36);
+        g2d.drawString("Direcation: (" + dirX + ", " + dirY + ")", scaleToX / 2, scaleToY / 2 + 48);
         for(int i = 0; i < 4; i++) {
             // Start with horizontally distributed points in the local coordinate space of the car
             float rx1 = -width / 2 + (width / 3) * i;
@@ -146,6 +177,7 @@ public class Car {
                         (int) ((rx2 + 1) * scaleToX), (int) ((ry2 + 1) * scaleToY));
         }
         g2d.dispose();
+        */
     }
 
     /**
@@ -159,8 +191,10 @@ public class Car {
                 alive = false;
                 color = Color.red;
             } else {
+                // Measure distance to the wall of the level
                 perceive(l, 4, 1);
                 
+                // Steering is performed by turning the car at an angle specified as one of the steering parameters
                 if(leftMinDist < steeringBehavior[THRESHOLD_CHANGEDIR]) {
                     float newDirX = (float) (dirX * Math.cos(steeringBehavior[ANGLE_CHANGEDIR])
                                     - dirY * Math.sin(steeringBehavior[ANGLE_CHANGEDIR]));
@@ -190,7 +224,6 @@ public class Car {
                 float incX = dirX * speed * ((float) deltaMillis / 1000);
                 float incY = dirY * speed * ((float) deltaMillis / 1000);
 
-                distanceTraveled += Math.sqrt(incX * incX + incY * incY);
                 x += incX;
                 y += incY;
                 timeTraveled += deltaMillis;
@@ -201,7 +234,7 @@ public class Car {
     /**
      * Tests whether the car has crossed the inner or outer boundaries of the level. It does so by determining the 
      * nearest line segment of the level and then using the dot product to determine on which side of the line the
-     * car currently is.
+     * car currently is. Also measures the distance traveled by keeping log of the line segments the car has passed.
      * @param l The Level object against which to test
      * @return True if a collision has occurred, false otherwise
      */
@@ -213,13 +246,19 @@ public class Car {
         closestInner = getNearestLine(l.getInnerVertices());
         dotInner = dotProduct(l.getInnerVertices(), closestInner);
 
+        // Use collision testing also for travel distance measurement
+        if(null == segmentsPassed) {
+            segmentsPassed = new int[l.getInnerVertices().length];
+        }
+        segmentsPassed[closestInner] = 1;
+
         // Test collision against outer circle
         closestOuter = getNearestLine(l.getOuterVertices());
         dotOuter = dotProduct(l.getOuterVertices(), closestOuter);
 
         // Test whether car is on the "right side of the line"
         if(dotInner < 0 || dotOuter > 0) {
-            System.out.println("Collision detected at (" + x + ", " + y + ")");
+            //System.out.println("Collision detected at (" + x + ", " + y + ")");
             return true;
         }
         return false;
@@ -297,7 +336,8 @@ public class Car {
      * private class attributes
      * @param l The level against which to measure distances
      * @param numRays How many rays to send out from the car (half of which will be measuring the left-side distance and half
-     * of which will be measuring the right-side distance) 
+     * of which will be measuring the right-side distance)
+     * @param rayLength The length of the ray in units (i.e., the distance the car can see)
      */
     public void perceive(Level l, int numRays, float rayLength) {
         float shortestDistLeft = 9999.0f;
@@ -347,6 +387,16 @@ public class Car {
         rightMinDist = shortestDistRight;
     }
 
+    /**
+     * Uses the ray specified by the first 4 coordinates to compute whether it touches a wall of the level and how far away
+     * that wall is.
+     * @param rx1 Starting point of the ray
+     * @param ry1 Starting point of the ray
+     * @param rx2 Ending point of the ray
+     * @param ry2 Ending point of the ray
+     * @param vertices Vertices making up the wall of the level to test against (can be inner or outer wall)
+     * @return If the ray hits a wall, distance to that wall in units; otherwise zero
+     */
     private float distanceToWall(float rx1, float ry1, float rx2, float ry2, float[][] vertices) {
         float shortestDist = 9999.0f;
         float curX, curY, nextX, nextY;
@@ -374,6 +424,19 @@ public class Car {
         return shortestDist;
     }
 
+    /**
+     * Computes whether two lines intersect and where that intersection point is
+     * @param x1 Starting point of the first line
+     * @param y1 Starting point of the first line
+     * @param x2 Ending point of the first line
+     * @param y2 Ending point of the first line
+     * @param x3 Starting point of the second line
+     * @param y3 Starting point of the second line
+     * @param x4 Ending point of the second line
+     * @param y4 Ending point of the second line
+     * @return Distance from the origin of the first line to the intersection point with the second line; 9999.0f if no
+     *          intersection is present
+     */
     private float lineDist(float x1, float y1, float x2, float y2, float x3, float y3, float x4, float y4) {
         float t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4));
         float u = ((x1 - x3) * (y1 - y2) - (y1 - y3) * (x1 - x2)) / ((x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4));

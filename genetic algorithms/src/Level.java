@@ -96,10 +96,8 @@ public class Level {
         // Draw the inner line of the track
         GeneralPath outline = new GeneralPath();
         outline.moveTo(innerVerticesScaled[0][0], innerVerticesScaled[0][1]);
-        g2d.drawString("0", innerVerticesScaled[0][0] + 5, innerVerticesScaled[0][1] + 5);
         for(int i = 1; i < innerVerticesScaled.length; i++) {
             outline.lineTo(innerVerticesScaled[i][0], innerVerticesScaled[i][1]);
-            g2d.drawString("" + i, innerVerticesScaled[i][0] + 5, innerVerticesScaled[i][1] + 5);
         }
         outline.closePath();
         g2d.draw(outline);
